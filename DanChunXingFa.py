@@ -286,7 +286,7 @@ class DanChunXingFa:
             return None
 
     def _CalculateMuBiaoFunction(self,BiaoShiMatrix,MuBiaoVector):
-        BiaoShiVector=np.zeros((1, 3))
+        BiaoShiVector=np.zeros((1, self.y-self.x+1))
 
         for Variabelbasis in self.basisVaries:
             if MuBiaoVector[Variabelbasis]!=0:
