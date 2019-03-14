@@ -107,10 +107,10 @@ class DanChunXingFa:
                 print('最优的决策向量为:\n{0},\n此时的目标函数最大值为:\n{1}\n'.format(self.bestSolution,self.jueCeMax[0,0]))
                 return self.bestSolution
 
-            #elif (self.jueCeMax[1:]<=0).all() & (self._equation(self.jueCeMax[1:],0)).any():
-            #    print('存在无数个最优解\n')
-            #    print('已知的一组为:\n{0},\n此时的目标函数最大值为:\n{1}\n'.format(self.bestSolution, self.jueCeMax[0]))
-            #    return self.bestSolution
+            elif (self.jueCeMax[0,1:]<=0).all() & (self.jueCeMax[0,1:]>-self.yibusinong).any():
+                print('存在无数个最优解\n')
+                print('已知的一组为:\n{0},\n此时的目标函数最大值为:\n{1}\n'.format(self.bestSolution, self.jueCeMax[0]))
+                return self.bestSolution
             else:# 没有找到最优解
                 # 找寻将被换入的基向量
 
