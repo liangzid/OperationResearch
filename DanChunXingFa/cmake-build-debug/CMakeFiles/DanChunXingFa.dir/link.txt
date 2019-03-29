@@ -1,0 +1,1 @@
+/usr/bin/c++  -g   CMakeFiles/DanChunXingFa.dir/demo.cpp.o  -o DanChunXingFa 

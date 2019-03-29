@@ -2,6 +2,16 @@ import numpy as np
 
 class DanChunXingFa:
     '''
+    单纯形法更新:
+    此次更新的内容包括:
+    1) 将之前只能使用在标准型的要求去除,添加了二阶段法人工变量来解决更一般的线性规划问题;
+    2) 添加了Bland准则以解决退化问题,但是该准则只会在出现了退化现象之后持续使用.目前测试良好,还没有发觉到死循环的例子.
+    3) 改进了输入,以使其更加人性化,更加符合常理.通过对矩阵的类型特殊限定让计算的精度更加稳定.
+    liangzid
+    2019.3.19
+    '''
+
+    '''
     单纯形法的尝试编程。
     使用:将目标优化(max)函数的系数传入,将已经化为标准型的系数|增广矩阵传入,使用run()方法得到结果.
     比如:
@@ -31,31 +41,195 @@ class DanChunXingFa:
 
     '''
 
-    def __init__(self,target,constraint):
-        self.target=target # 决策目标，必须是最大化问题
+    def __init__(self,usingAimMax=True,target=np.zeros((0,0)),equ=np.zeros((0,20)),XiaoYu=np.zeros((0,20)),Dayu=np.zeros((0,20))):
+
+        self.equ = equ
+        '''
+        if (equ.shape)[0] != 0:
+        
+            
+            if (equ[:,-1] < 0).any:
+                self.equ = 0. - equ
+        else:
+            self.equ = equ
+            '''
+        self.XiaoYu=XiaoYu
+        self.DaYu=Dayu
+
+        constraint,NumOfAdd,y=self._BiaoZhunHua(self.equ,self.DaYu,self.XiaoYu)
+
+        self.M = np.max(constraint)*100
+        print('在这个计算中大M的数值为{}'.format(self.M))
+        # print(self.target.shape)
+        self.target=np.zeros(y+NumOfAdd)
+        self.usingAimMax = usingAimMax
+        if self.usingAimMax:
+            self.target[0:(y)] = target
+        else:
+            self.target[0:(y)] = 0. - target  # 将极小化问题转化为极大化问题
+
+        #self.target=np.hstack((self.target,np.zeros((NumOfAdd,))))
+
         self.constraintA=constraint[:,:-1] # 约束条件的系数矩阵
         #print(self.constraintA)
         self.constraintb=constraint[:,-1] # 约束方程的b向量
+        m,n=self.XiaoYu.shape
+        # print(self.constraintb.shape)
+        self.constraintb[m:-1]=(-1)*self.M
         self.x,self.y=self.constraintA.shape
 
         # 这些是在迭代时需要被频繁使用的变量
-        self.bestSolution=np.zeros((self.y,1)) # 存储历史最优解（由于贪心算法，所以历史最优解就是当前解）的向量
+        self.bestSolution=np.zeros((self.y,1),dtype=np.double) # 存储历史最优解（由于贪心算法，所以历史最优解就是当前解）的向量
 
-        self.basisVaries=np.zeros((self.x,1))  # 存储基变量的索引，从零开始
-        self.basisNotVaries=np.zeros((self.y-self.x,1)) # 存储非基变量的索引
+        self.basisVaries=np.zeros((self.x,1),dtype=np.double)  # 存储基变量的索引，从零开始
+        self.basisNotVaries=np.zeros((self.y-self.x,1),dtype=np.double) # 存储非基变量的索引
 
-        self.basisMatrix=np.eye(self.x) # 基向量形成的方阵
-        self.bVector=np.zeros((self.x,1)) # 每次迭代过程中的b向量
-        self.basisNotMatrix=np.zeros((self.x,self.y-self.x)) # 非基变量对应的系数的矩阵
+        self.basisMatrix=np.eye(self.x,dtype=np.double) # 基向量形成的方阵
+        self.bVector=np.zeros((self.x,1),dtype=np.double) # 每次迭代过程中的b向量
+        self.basisNotMatrix=np.zeros((self.x,self.y-self.x),dtype=np.double) # 非基变量对应的系数的矩阵
 
-        self.jueCeMax=np.zeros((1,self.y-self.x+1)) # 使用非决策变量表示目标函数得到的系数，其中首位为常数项（即为目标最大值），
+        self.jueCeMax=np.zeros((1,self.y-self.x+1),dtype=np.double) # 使用非决策变量表示目标函数得到的系数，其中首位为常数项（即为目标最大值），
                                                     # 剩下的顺序按照非决策变量的顺序进行
         self.maxValueNow=self.jueCeMax[0]
         self.selectInput=-100 # 决策使用那个变量作为选入
-        self.jueCeWhichOutputMatrix = np.zeros((self.x, self.y - self.x + 1))  # 存储考虑选出哪一个变量时进行的操作
+        self.jueCeWhichOutputMatrix = np.zeros((self.x, self.y - self.x + 1),dtype=np.double)  # 存储考虑选出哪一个变量时进行的操作
         self.selectOutput=-100 # 决策使用那个变量作为选出
 
         self.yibusinong=1e-3 # 常量
+
+    def _BiaoZhunHua(self,dengyu,dayu,xiaoyu):
+        y=0
+        dengyu_x,dengyu_y=dengyu.shape
+        dengyu_y -= 1
+
+        dayu_x,dayu_y=dayu.shape
+        dayu_y -= 1
+
+        xiaoyu_x,xiaoyu_y=xiaoyu.shape
+        xiaoyu_y -= 1
+
+        # if dengyu_y!=dayu_y|dengyu_y!=xiaoyu_y|dayu_y!=xiaoyu_y:
+        #    raise Exception('错误!输入有误!\n您必须保证您输入的约束条件中决策变量的数目是相同的,缺少的量可以考虑用0代替.\n')
+        #print(dengyu,dayu,xiaoyu,xiaoyu_y)
+        if dengyu_x > 0:
+            y = dengyu_y
+        else:
+            if dayu_x > 0:
+                y = dayu_y
+            else:
+                if xiaoyu_x > 0:
+                    # print('=========111111==================='+str(xiaoyu_y))
+                    y = xiaoyu_y
+                else:
+                    # print(xiaoyu_y)
+                    raise Exception("没有任何的有效输入,无法运行程序.\n")
+        # print('=========111111==================='+str(y))
+        # print(xiaoyu_y)
+
+
+        if dengyu_y != y:
+            dengyu = np.zeros((0, y + 1))
+        if dayu_y!=y:
+            dayu=np.zeros((0,y+1))
+        if xiaoyu_y!=y:
+            xiaoyu=np.zeros((0,y+1))
+
+        # print(xiaoyu)
+        # 查看一下是否存在b向量中小于0的项,如果存在的话,将其转化为大于0
+        temp_vec=np.zeros((1,xiaoyu_y+1))
+        i=0
+        while 1:
+            temp_rows,_=xiaoyu.shape
+            if i==temp_rows:
+                break
+
+            if xiaoyu[i, -1] < 0:
+                # print('是呀!')
+                temp_vec=(-1)*xiaoyu[i,:]
+                np.delete(xiaoyu,i,axis=0)
+                np.insert(dayu,values=temp_vec,axis=0)
+            else:
+                i+=1
+
+
+        i=0
+        while 1:
+            if i==dayu_x:
+                break
+
+            if dayu[i,-1]<0:
+                # print('zhaodaonile')
+                temp_vec=(-1)*dayu[i,:]
+                np.delete(dayu,i,axis=0)
+                np.insert(xiaoyu,values=temp_vec,axis=0)
+            else:
+                i+=1
+
+        # 更新小于大于的参数
+        engyu_x, dengyu_y = dengyu.shape
+        dayu_x, dayu_y = dayu.shape
+        xiaoyu_x, xiaoyu_y = xiaoyu.shape
+
+        dengyu_y -= 1
+        dayu_y -= 1
+        xiaoyu_y -= 1
+
+
+        # print(xiaoyu_x)
+        constraint = np.zeros((dengyu_x + dayu_x + xiaoyu_x, y + dengyu_x + dayu_x * 2 + xiaoyu_x),
+                              dtype=np.double)
+        # print(constraint.shape)
+        # print(xiaoyu_x)
+        # 填补上这些数字
+        constraint[0:xiaoyu_x, 0:(y)] = xiaoyu[:, 0:(xiaoyu_y)]
+        constraint[xiaoyu_x:(xiaoyu_x + dayu_x), 0:(y)] = dayu[:, 0:-1]
+        constraint[(xiaoyu_x + dayu_x):-1, 0:(y)] = dengyu[:, 0:-1]
+
+        #对对大于的等式添加-1
+        for i in range(dayu_x):
+            constraint[xiaoyu_x+i,y+i]=-1
+        #对小于的等式添加1
+        for i in range(xiaoyu_x):
+            constraint[0+i,y+dayu_x+i]=1
+
+        #添加人工变量
+        for i in range(dayu_x+dengyu_x):
+            constraint[xiaoyu_x+i,y+dayu_x+xiaoyu_x+i]=1
+
+        # print(xiaoyu.shape,dayu.shape,dengyu.shape)
+        b=np.zeros((xiaoyu_x+dengyu_x+dayu_x,1))
+
+        if dengyu_x!=0 :
+            b=xiaoyu[:,-1]
+            if dayu_x!=0:
+                print('=====================')
+                print(b.shape,dayu[:,-1])
+                b=np.vstack((b,dayu[:,-1]))
+                if dengyu_x!=0:
+                    b=np.vstack((b,dengyu[:,-1]))
+            else:
+                if dengyu_x!=0:
+                    b = np.vstack((b, dengyu[:, -1]))
+        else:
+            if dayu_x!=0:
+                b=dayu[:,-1]
+                if dengyu_x!=0:
+                    b=np.vstack((b,dengyu[:,-1]))
+            else:
+                if dengyu_x!=0:
+                    b =dengyu[:, -1]
+
+
+        # b=np.zeros((dengyu_x+dayu_x+xiaoyu_x,1))
+        # b=np.vstack((np.vstack((xiaoyu[:,-1],dayu[:,-1])),dengyu[:,-1]))
+
+        NumOfAdd=dengyu_x+dayu_x*2+xiaoyu_x
+
+        # print(b.shape)
+        # print(constraint.shape)
+
+        return np.hstack((constraint,b)),NumOfAdd,y
+
 
     def IterationInit(self):
         '''
@@ -182,18 +356,24 @@ class DanChunXingFa:
         # 存储最小的选出变量的变化的数值
         min=np.inf
         OutputIndex=-100
+        print(m)
         for i in range(m): # 对每一个基变量进行计算,得到最应该选出的基变量
-            #print(i)
+            print('============2222222==========================')
+
             if self._equation(BiaoShiMatrix[i,XuanRuIndex+1],self.yibusinong)==1:
                 a=0
             else:
                 a=BiaoShiMatrix[i,0]*(-1)/(BiaoShiMatrix[i,XuanRuIndex+1])
+            #print(a)
             if a<=0: # 保证向量的恒正
+                print('该问题无界,无解.\n')
                 continue
             #   print(a)
             min,tihuan=self._min(a,min)
+            #print(min,tihuan,OutputIndex)
             if tihuan==1:
                 OutputIndex=i
+            print('i:{0},a:{1},min:{2},OutputIndex:{3}.'.format(i,a,min,OutputIndex))
 
         return basisV[OutputIndex]
 
@@ -304,14 +484,27 @@ class DanChunXingFa:
 可以直接运行 python DanChunXingFa.py 运行下面的程序
 '''
 
-#==================================例子============================
-test=DanChunXingFa(target=np.array([2.,3.,0.,0.,0.]),constraint=np.array([[1.,2.,1.,0.,0.,8.],
-                                                                          [4.,0.,0.,1.,0.,16.],
-                                                                          [0.,4.,0.,0.,1.,12.]]))
-test.run()
+
+print('==========================示例1=================================')
+test1=DanChunXingFa(usingAimMax=True,target=np.array([3,-1,-1]),XiaoYu=np.array([[1,-2,1,11]]),
+                    Dayu=np.array([[-4,1,2,3]]),
+                    equ=np.array([[-2,0,1,1]]) )
+test1.run()
+
+print('===========================示例二================================')
+test2=DanChunXingFa(usingAimMax=True,target=np.array([[40],[45],[24]]),XiaoYu=np.array([[2,3,1,100],
+                                                                                [3,3,2,120]]))
+test2.run()
+
+print('============================示例三================================')
 
 
 
 
 
+import torch
+import numpy as np
 
+
+def liangzi(haha):
+    liangziii=

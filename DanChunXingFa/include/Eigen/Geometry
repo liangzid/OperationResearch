@@ -1,0 +1,62 @@
+// This file is part of Eigen, a lightweight C++ template library
+// for linear algebra.
+//
+// This Source Code Form is subject to the terms of the Mozilla
+// Public License v. 2.0. If a copy of the MPL was not distributed
+// with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+#ifndef EIGEN_GEOMETRY_MODULE_H
+#define EIGEN_GEOMETRY_MODULE_H
+
+#include "Core"
+
+#include "Eigen/src/Core/util/DisableStupidWarnings.h"
+
+#include "SVD"
+#include "LU"
+#include <limits>
+
+/** \defgroup Geometry_Module Geometry module
+  *
+  * This module provides support for:
+  *  - fixed-size homogeneous transformations
+  *  - translation, scaling, 2D and 3D rotations
+  *  - \link Quaternion quaternions \endlink
+  *  - cross products (\ref MatrixBase::cross, \ref MatrixBase::cross3)
+  *  - orthognal vector generation (\ref MatrixBase::unitOrthogonal)
+  *  - some linear components: \link ParametrizedLine parametrized-lines \endlink and \link Hyperplane hyperplanes \endlink
+  *  - \link AlignedBox axis aligned bounding boxes \endlink
+  *  - \link umeyama least-square transformation fitting \endlink
+  *
+  * \code
+  * #include <Eigen/Geometry>
+  * \endcode
+  */
+
+#include "Eigen/src/Geometry/OrthoMethods.h"
+#include "Eigen/src/Geometry/EulerAngles.h"
+
+#include "Eigen/src/Geometry/Homogeneous.h"
+#include "Eigen/src/Geometry/RotationBase.h"
+#include "Eigen/src/Geometry/Rotation2D.h"
+#include "Eigen/src/Geometry/Quaternion.h"
+#include "Eigen/src/Geometry/AngleAxis.h"
+#include "Eigen/src/Geometry/Transform.h"
+#include "Eigen/src/Geometry/Translation.h"
+#include "Eigen/src/Geometry/Scaling.h"
+#include "Eigen/src/Geometry/Hyperplane.h"
+#include "Eigen/src/Geometry/ParametrizedLine.h"
+#include "Eigen/src/Geometry/AlignedBox.h"
+#include "Eigen/src/Geometry/Umeyama.h"
+
+// Use the SSE optimized version whenever possible. At the moment the
+// SSE version doesn't compile when AVX is enabled
+#if defined EIGEN_VECTORIZE_SSE && !defined EIGEN_VECTORIZE_AVX
+#include "Eigen/src/Geometry/arch/Geometry_SSE.h"
+#endif
+
+#include "Eigen/src/Core/util/ReenableStupidWarnings.h"
+
+#endif // EIGEN_GEOMETRY_MODULE_H
+/* vim: set filetype=cpp et sw=2 ts=2 ai: */
+
