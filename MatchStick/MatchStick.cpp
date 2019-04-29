@@ -1,3 +1,15 @@
+/**********************************************************
+火柴棒小游戏！该游戏目前可实现以下功能：
+1）任意确定火柴棒个数
+2）任意确定敌方我方最多最少可以选多少火柴棒
+仍无法实现的是：
+1）无法再确定计算机完全胜利的时候进行启发式下棋
+2）目前只能计算机走第一步
+
+
+liangzid
+2019年4月29日
+**********************************************************/
 # include<iostream>
 # include<string>
 # include<vector>
@@ -119,6 +131,13 @@ int IMinGet, int heMaxGet, int heMinGet)
         numNeedGet.push_back(numOfALlMatchSticks-heMinGet);
         return numNeedGet;
     }
+    else if(numOfALlMatchSticks==(min(IMaxGet+heMinGet,IMinGet+heMaxGet)+IMinGet))
+	{
+		cout<<"计算机拒绝进行本场游戏，请换用其他数字，游戏结束。\n";
+		numNeedGet.push_back(-1);
+        return numNeedGet;
+	 } 
+    
     else
     {
         //一次不能抓取尽,这时我就必须得想方设法抓到第n-1根.一定能抓到第n-1根的要求是,无论对方选择抓多少根(1->h),我都
